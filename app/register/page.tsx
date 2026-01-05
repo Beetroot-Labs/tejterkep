@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -11,7 +11,7 @@ const hungaryCenter = { lat: 47.1625, lng: 19.5033 }
 
 const MapPicker = dynamic(() => import('@/app/components/MapPicker'), { ssr: false })
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -140,14 +140,8 @@ export default function RegisterPage() {
   const j = await resp.json()
   if (!resp.ok) throw new Error(j?.error ?? 'Regisztráció sikertelen.')
 
-  // ✅ 2) login
-  const { error: loginErr } = await supabaseBrowser.auth.signInWithPassword({
-    email: email.trim(),
-    password,
-  })
-  if (loginErr) throw loginErr
-
-  router.push('/farmer/products')
+  setMsg('Regisztráció kész. Ellenőrizd az emailedet a megerősítéshez.')
+  setMode('signin')
   return
       } else {
         const { error } = await supabaseBrowser.auth.signInWithPassword({ email, password })
@@ -321,5 +315,13 @@ export default function RegisterPage() {
         </form>
       </div>
     </main>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<main className="page"><div className="container container-narrow"><section className="card">Betöltés…</section></div></main>}>
+      <RegisterForm />
+    </Suspense>
   )
 }

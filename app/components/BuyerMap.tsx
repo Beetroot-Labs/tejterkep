@@ -40,12 +40,12 @@ function MapEvents({
   onZoomCenter?: (center: { lat: number; lng: number }) => void
 }) {
   useMapEvents({
-    dragend(event) {
+    dragend(event: any) {
       if (!onDragEnd) return
       const center = event.target.getCenter()
       onDragEnd({ lat: center.lat, lng: center.lng })
     },
-    zoomend(event) {
+    zoomend(event: any) {
       if (onZoomCenter) {
         const center = event.target.getCenter()
         onZoomCenter({ lat: center.lat, lng: center.lng })

@@ -7,6 +7,15 @@ function bad(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status })
 }
 
+function isValidPhone(phone: string) {
+  const normalized = phone.replace(/[\s-]/g, '')
+  return /^(\+36|06|0036)\d{7,}$/.test(normalized)
+}
+
+function isValidFelir(felir: string) {
+  return /^[A-Za-z]{2}\d{7}$/.test(felir)
+}
+
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null)
   if (!body) return bad('Invalid JSON')
@@ -21,27 +30,31 @@ export async function POST(req: Request) {
   if (!name || !email || !phone || !address || !felir || !password) {
     return bad('Missing required fields')
   }
+  if (!isValidPhone(phone)) {
+    return bad('A telefonszám formátuma hibás. +36, 06 vagy 0036 kezdet kötelező.')
+  }
+  if (!isValidFelir(felir)) {
+    return bad('A FELIR szám formátuma hibás (2 betu + 7 szam).')
+  }
 
-  // Geocode (opcionális, ha már akarod itt is)
-  let lat: number | null = null
-  let lng: number | null = null
-
-  // Ha már van /api/geocode endpointod, meghívhatod itt is szerveroldalon.
-  // De egyszerűbb: a kliens már elküldi lat/lng-t, és itt csak validálod.
-  if (body.lat != null && body.lng != null) {
-    lat = Number(body.lat)
-    lng = Number(body.lng)
+  if (body.lat == null || body.lng == null) {
+    return bad('A hely koordinátái kötelezőek.')
+  }
+  const lat = Number(body.lat)
+  const lng = Number(body.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return bad('A koordináták érvénytelenek.')
   }
 
   try {
-    // 1) Auth user létrehozása (admin)
-    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+    // 1) Auth user létrehozása (email megerősítéssel)
+    const { data: created, error: createErr } = await supabaseAdmin.auth.signUp({
       email,
       password,
-      email_confirm: true, // MVP: ne kelljen email megerősítés
     })
     if (createErr) return bad(createErr.message, 400)
-    const userId = created.user.id
+    const userId = created.user?.id
+    if (!userId) return bad('Nem sikerült létrehozni a felhasználót.', 400)
 
     // 2) Tenant rekord beszúrás (RLS-t bypassolja a service role)
     const { error: insErr } = await supabaseAdmin.from('tenants').insert({
@@ -65,4 +78,3 @@ export async function POST(req: Request) {
     return bad(e?.message ?? 'Server error', 500)
   }
 }
-
